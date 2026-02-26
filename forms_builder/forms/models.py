@@ -7,8 +7,6 @@ from django.db import models
 from django.db.models import Q
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext, gettext_lazy as _
-from future.builtins import str
-
 from forms_builder.forms import fields
 from forms_builder.forms import settings
 from forms_builder.forms.utils import now, slugify, unique_slug
@@ -119,9 +117,6 @@ class AbstractForm(models.Model):
         publish_date = self.publish_date is None or self.publish_date <= now()
         expiry_date = self.expiry_date is None or self.expiry_date >= now()
         authenticated = for_user is not None and for_user.is_authenticated
-        if DJANGO_VERSION <= (1, 9):
-            # Django 1.8 compatibility, is_authenticated has to be called as a method.
-            authenticated = for_user is not None and for_user.is_authenticated()
         login_required = (not self.login_required or authenticated)
         return status and publish_date and expiry_date and login_required
 
@@ -149,7 +144,6 @@ class AbstractForm(models.Model):
             links[i] = "<a href='%s'>%s</a>" % (url, gettext(text))
         return mark_safe("<br>".join(links))
 
-    admin_links.allow_tags = True
     admin_links.short_description = ""
 
 

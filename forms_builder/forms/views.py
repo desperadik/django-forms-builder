@@ -1,23 +1,16 @@
-from __future__ import unicode_literals
-
 import json
 
 from django.conf import settings
 from django.contrib.auth import REDIRECT_FIELD_NAME
-from django.views.decorators.clickjacking import xframe_options_exempt
-from django.views.decorators.csrf import csrf_exempt
-
-try:
-    from django.urls import reverse
-except ImportError:
-    # For Django 1.8 compatibility
-    from django.core.urlresolvers import reverse
+from django.core.mail import send_mail
+from django.urls import reverse
 from django.http import HttpResponse, HttpResponseBadRequest, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import RequestContext
-from urllib.parse import quote as urlquote
+from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import TemplateView
-from email_extras.utils import send_mail_template
+from urllib.parse import quote as urlquote
 
 from forms_builder.forms.forms import FormForForm
 from forms_builder.forms.models import Form
@@ -62,14 +55,14 @@ class FormDetail(TemplateView):
             entry = form_for_form.save()
             form_valid.send(sender=request, form=form_for_form, entry=entry)
             self.send_emails(request, form_for_form, form, entry, attachments)
-            if not self.request.is_ajax():
+            if not self.request.headers.get("x-requested-with") == "XMLHttpRequest":
                 return redirect(form.redirect_url or
                                 reverse("form_sent", kwargs={"slug": form.slug}))
         context = {"form": form, "form_for_form": form_for_form}
         return self.render_to_response(context)
 
     def render_to_response(self, context, **kwargs):
-        if self.request.method == "POST" and self.request.is_ajax():
+        if self.request.method == "POST" and self.request.headers.get("x-requested-with") == "XMLHttpRequest":
             json_context = json.dumps({
                 "errors":  context["form_for_form"].errors,
                 "form":    context["form_for_form"].as_p(),
@@ -99,19 +92,12 @@ class FormDetail(TemplateView):
         email_from = form.email_from or settings.DEFAULT_FROM_EMAIL
         email_to = form_for_form.email_to()
         if email_to and form.send_email:
-            send_mail_template(subject, "form_response", email_from,
-                               email_to, context=context,
-                               fail_silently=EMAIL_FAIL_SILENTLY)
-        headers = None
-        if email_to:
-            headers = {"Reply-To": email_to}
+            send_mail(subject, str(context), email_from, [email_to],
+                      fail_silently=EMAIL_FAIL_SILENTLY)
         email_copies = split_choices(form.email_copies)
         if email_copies:
-            send_mail_template(subject, "form_response_copies", email_from,
-                               email_copies, context=context,
-                               attachments=attachments,
-                               fail_silently=EMAIL_FAIL_SILENTLY,
-                               headers=headers)
+            send_mail(subject, str(context), email_from, email_copies,
+                      fail_silently=EMAIL_FAIL_SILENTLY)
 
 
 form_detail = FormDetail.as_view()

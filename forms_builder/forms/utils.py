@@ -18,7 +18,6 @@ def slugify(s):
     Translates unicode into closest possible ascii chars before
     slugifying.
     """
-    from future.builtins import str
     return django_slugify(unidecode(str(s)))
 
 
