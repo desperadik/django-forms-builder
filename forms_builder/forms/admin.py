@@ -8,6 +8,7 @@ from io import BytesIO, StringIO
 from mimetypes import guess_type
 from os.path import join
 
+from django import forms
 from django.contrib import admin
 from django.core.files.storage import FileSystemStorage
 from django.urls import reverse, re_path
@@ -93,6 +94,11 @@ class FormAdmin(admin.ModelAdmin):
     radio_fields = {"status": admin.HORIZONTAL}
     fieldsets = form_admin_fieldsets
     save_on_top = True
+
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        if db_field.name == "email_copies":
+            kwargs["widget"] = forms.Textarea(attrs={"rows": 4, "cols": 80})
+        return super(FormAdmin, self).formfield_for_dbfield(db_field, **kwargs)
 
     def has_change_permission(self, request, obj=None):
         if obj and obj.status == STATUS_ARCHIVED:
